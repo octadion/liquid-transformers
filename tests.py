@@ -2,7 +2,7 @@ import pytest
 import torch
 import torch.nn as nn
 import math
-from liquid.leaky_attention import (
+from liquid_transformers.leaky_attention import (
     LeakyIntegrator,
     ConductanceBasedSynapse,
     LeakyIntegrationAttention,
@@ -27,22 +27,19 @@ def test_conductance_synapse():
     assert torch.all(output >= 0) and torch.all(output <= 1)
 
 def test_attention(input_tensor):
-    attn = LeakyIntegrationAttention(512, 8)
-    output, weights = attn(input_tensor, input_tensor, input_tensor)
+    attn = LeakyIntegrationAttention(d_model=512, n_head=8, batch_first=True)
+    output, weights = attn(input_tensor, input_tensor, input_tensor, need_weights=True)
     assert output.shape == input_tensor.shape
     assert weights.shape == (2, 8, 5, 5)
 
 def test_transformer_encoder():
-    encoder = CustomTransformerEncoder(
-        CustomTransformerEncoderLayer(
-            d_model=512,
-            n_head=8,
-            batch_first=True
-        ),
-        num_layers=6
+    encoder_layer = CustomTransformerEncoderLayer(
+        d_model=512,
+        n_head=8,
+        batch_first=True
     )
+    encoder = CustomTransformerEncoder(encoder_layer, num_layers=6)
     
-    # Input format: (batch_size, seq_len, d_model)
-    src = torch.randn(2, 10, 512)
+    src = torch.randn(2, 10, 512)  # Format: (batch, seq, d_model)
     out = encoder(src)
     assert out.shape == src.shape

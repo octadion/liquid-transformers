@@ -26,7 +26,9 @@ class LeakyIntegrationAttention(nn.Module):
         self.d_model = d_model
         self.n_head = n_head
         self.batch_first = batch_first
-        
+        self._qkv_same_embed_dim = False
+        self.in_proj_weight = None  # <-- Dummy
+        self.in_proj_bias = None
         self.query_proj = nn.Linear(d_model, d_model)
         self.key_proj = nn.Linear(d_model, d_model)
         self.value_proj = nn.Linear(d_model, d_model)
@@ -69,15 +71,26 @@ class LeakyIntegrationAttention(nn.Module):
         attn_output = self.out_proj(attn_output)
 
         if self.batch_first:
-            return attn_output, attn_weights if need_weights else attn_output
+            output = attn_output
+            weights = attn_weights
         else:
-            return attn_output.permute(1, 0, 2), attn_weights if need_weights else attn_output.permute(1, 0, 2)
+            output = attn_output.permute(1, 0, 2)
+            weights = attn_weights
+
+        if need_weights:
+            return (output, weights)
+        else:
+            return output 
 
 class CustomTransformerEncoderLayer(TransformerEncoderLayer):
     def __init__(self, d_model, n_head, dim_feedforward=2048, dropout=0.1, activation='gelu', batch_first=False):
         super().__init__(d_model, n_head, dim_feedforward, dropout, activation)
-        self.self_attn = LeakyIntegrationAttention(d_model, n_head, batch_first=batch_first)
-        self.batch_first = batch_first
+        self.self_attn = LeakyIntegrationAttention(
+            d_model=d_model,
+            n_head=n_head,
+            batch_first=batch_first
+        )
+        self.self_attn._qkv_same_embed_dim = False
 
 class CustomTransformerEncoder(TransformerEncoder):
     def __init__(self, encoder_layer, num_layers, norm=None):
